@@ -1,0 +1,1 @@
+gcc -g -Wall -std=c11 -I../common/ -o client -D_GNU_SOURCE  -I/home/indix/explore/libuv/include client.c -luv
