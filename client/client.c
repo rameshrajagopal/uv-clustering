@@ -9,18 +9,17 @@
 #include <uv.h>
 #include "utils.h"
 
-#define  SERVER_ADDRESS  "127.0.0.1"
-#define  SERVER_PORT  7000
-#define  MAX_REQUESTS  (2)
+#define  MAX_REQUESTS  (10)
+#define  MAX_CLIENTS (1)
 
 static uv_loop_t * loop;
 
 void on_connect(uv_connect_t *req, int status);
 void on_write_end(uv_write_t *req, int status);
 void alloc_buffer(uv_handle_t *handle, size_t suggested_size, uv_buf_t * buf);
-void echo_read(uv_stream_t *server, ssize_t nread, const uv_buf_t * buf);
+void data_read_cb(uv_stream_t *server, ssize_t nread, const uv_buf_t * buf);
 
-void echo_read(uv_stream_t * server, ssize_t nread, const uv_buf_t * buf)
+void data_read_cb(uv_stream_t * server, ssize_t nread, const uv_buf_t * buf)
 {
     DBG_PRINT("%s: nread:%ld\n", __FUNCTION__, nread);
     if (nread < 0) {
@@ -29,8 +28,8 @@ void echo_read(uv_stream_t * server, ssize_t nread, const uv_buf_t * buf)
     }
     struct timeval curtime;
     gettimeofday(&curtime, NULL);
-    DBG_LOG("Response: %s sec:%ld u_sec: %ld\n", 
-            buf->base, curtime.tv_sec, curtime.tv_usec);
+    DBG_LOG("Response: %s sec:%ld u_sec: %ld data read: %ld\n", 
+            buf->base, curtime.tv_sec, curtime.tv_usec, nread);
 }
 
 void alloc_buffer(uv_handle_t * handle, size_t size, uv_buf_t * buf)
@@ -47,7 +46,8 @@ void on_write_end(uv_write_t * req, int status)
         return;
     }
    DBG_PRINT("%s: handle: %p\n", __FUNCTION__, req);
-    uv_read_start(req->handle, alloc_buffer, echo_read);
+   uv_read_start(req->handle, alloc_buffer, data_read_cb);
+   free(req);
 }
 
 void client_request_cb(uv_work_t * req)
@@ -90,8 +90,11 @@ void on_connect(uv_connect_t * req, int status)
     uv_queue_work(uv_default_loop(), &c_req->req, client_request_cb, client_request_cleanup_cb);
 }
 
-int main(void)
+void client_task(void * arg)
 {
+    int client_num = (int) (unsigned long)arg;
+
+    DBG_LOG("Client started... %d\n", client_num);
     loop = uv_default_loop();
 
     uv_tcp_t client;
@@ -103,7 +106,18 @@ int main(void)
     uv_connect_t connect_req;
 
     uv_tcp_connect(&connect_req, &client, (const struct sockaddr *)&req_addr, on_connect);
+    (void)uv_run(uv_default_loop(), UV_RUN_DEFAULT);
+}
 
-    return uv_run(loop, UV_RUN_DEFAULT);
+int main(void)
+{
+    uv_thread_t threads[MAX_CLIENTS];
+    for (int num = 0; num < MAX_CLIENTS; ++num) {
+        uv_thread_create(&threads[num], client_task, (void *)(unsigned long)num);
+    }
+    for (int num = 0; num < MAX_CLIENTS; ++num) {
+        uv_thread_join(&threads[num]);
+    }
+    return 0;
 }
 

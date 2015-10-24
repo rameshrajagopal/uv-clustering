@@ -2,11 +2,13 @@
 #define _UTILS_H_INCLUDED_
 
 #include <uv.h>
-#define  WORKER_ADDRESS  "127.0.0.1"
+#define  WORKER_ADDRESS  "192.168.0.241"
 #define  WORKER_PORT  7000
+#define  SERVER_ADDRESS  "192.168.0.241"
+#define  SERVER_PORT  7000
 
-#define DBG()  printf("%s:%d\n", __FUNCTION__, __LINE__)
-#define DBG_PRINT(fmt...) printf(fmt)
+#define DBG()  //printf("%s:%d\n", __FUNCTION__, __LINE__)
+#define DBG_PRINT(fmt...) //printf(fmt)
 #define DBG_PRINT_ERR(fmt...) printf(fmt)
 #define DBG_PRINT_INFO(fmt...) printf(fmt)
 #define DBG_LOG(fmt...) printf(fmt)

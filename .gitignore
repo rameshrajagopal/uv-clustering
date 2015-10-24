@@ -1,2 +1,5 @@
 cscope.out
 tags
+client
+server
+worker
