@@ -25,8 +25,8 @@ static void after_write_cb(uv_write_t* req, int status)
 {
   write_req_t * wr = (write_req_t*)req;
 
-  DBG();
-#if 0
+  DBG_PRINT("%s:  wr: %p buf->base: %p\n", __FUNCTION__, wr, wr->buf.base);
+#if 1
   if (wr->buf.base != NULL)
     free(wr->buf.base);
 #endif
@@ -48,20 +48,19 @@ void work_request_cb(uv_work_t * req)
                      __FUNCTION__, c_req->client_req_num, c_req->nread);
     /* do actual work */
     usleep(100 * 1000);
+    write_req_t * wr;
+    wr = (write_req_t *) malloc(sizeof(*wr));
+    assert(wr != NULL);
+    DBG_PRINT("%s:  wr: %p buf->base: %p\n", __FUNCTION__, wr, c_req->buf->base);
+    wr->buf = uv_buf_init(c_req->buf->base, c_req->nread);
+    int r = uv_write(&wr->req, (uv_stream_t *)c_req->handle, &wr->buf, 1, after_write_cb);
+    assert(r == 0);
 }
 
 void work_request_cleanup_cb(uv_work_t * req, int status)
 {
     struct request * c_req = (struct request *)req->data;
-    write_req_t * wr;
-
     DBG();
-    wr = (write_req_t *) malloc(sizeof(*wr));
-    assert(wr != NULL);
-
-    wr->buf = uv_buf_init(c_req->buf->base, c_req->nread);
-    int r = uv_write(&wr->req, (uv_stream_t *)c_req->handle, &wr->buf, 1, after_write_cb);
-    assert(r == 0);
     free(c_req);
 }
 
@@ -88,7 +87,7 @@ static void after_read_cb(uv_stream_t * handle,
   }
   if (nread == 0) {
       DBG_PRINT("%s:%d length: %ld\n", __FUNCTION__, __LINE__, nread);
-     return;
+      return;
   }
   /* generate ReqNum here and map ReqNum -> handle */
   struct request * c_req = malloc(sizeof(struct request));

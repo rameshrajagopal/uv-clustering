@@ -1,11 +1,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <uv.h>
-#include "utils.h"
+#include <assert.h>
+#include <unistd.h>
 #include <sys/time.h>
 #include <time.h>
-#include <assert.h>
+
+#include <uv.h>
+#include "utils.h"
 
 #define  SERVER_ADDRESS  "127.0.0.1"
 #define  SERVER_PORT  7000
@@ -20,6 +22,7 @@ void echo_read(uv_stream_t *server, ssize_t nread, const uv_buf_t * buf);
 
 void echo_read(uv_stream_t * server, ssize_t nread, const uv_buf_t * buf)
 {
+    DBG_PRINT("%s: nread:%ld\n", __FUNCTION__, nread);
     if (nread < 0) {
         DBG_PRINT_ERR("error on write end");
         return;
@@ -32,15 +35,18 @@ void echo_read(uv_stream_t * server, ssize_t nread, const uv_buf_t * buf)
 
 void alloc_buffer(uv_handle_t * handle, size_t size, uv_buf_t * buf)
 {
+    DBG();
     *buf = uv_buf_init((char *) malloc(size), size);
 }
 
 void on_write_end(uv_write_t * req, int status)
 {
+    DBG_PRINT("%s: status:%d\n", __FUNCTION__, status);
     if (status == -1) {
         DBG_PRINT_ERR("error on write end");
         return;
     }
+   DBG_PRINT("%s: handle: %p\n", __FUNCTION__, req);
     uv_read_start(req->handle, alloc_buffer, echo_read);
 }
 
@@ -49,16 +55,18 @@ void client_request_cb(uv_work_t * req)
     struct request * c_req = (struct request *)req->data;
 
     DBG();
-    char data[1024];
     for (int num = 0; num < c_req->nrequests; ++num) {
        struct timeval curtime;
        gettimeofday(&curtime, NULL);
        DBG_LOG("Request: %d:%d sec:%ld usec:%ld\n", c_req->client_req_num, num, curtime.tv_sec, curtime.tv_usec);
-       snprintf(data, sizeof(data), "%d:%d", c_req->client_req_num, num); 
-       uv_buf_t buf = uv_buf_init(data, sizeof(data));
+       uv_buf_t buf = uv_buf_init(malloc(sizeof(char) * 1024), 1024);
+       snprintf(buf.base, buf.len, "%d:%d", c_req->client_req_num, num); 
        int buf_count = 1;
-       uv_write_t write_req;
-       uv_write(&write_req, (uv_stream_t *)c_req->handle, &buf, buf_count, on_write_end);
+       uv_write_t * wr = malloc(sizeof(uv_write_t));
+       assert(wr != NULL);
+       DBG_PRINT("%s: handle: %p\n", __FUNCTION__, wr);
+       uv_write(wr, (uv_stream_t *)c_req->handle, &buf, buf_count, on_write_end);
+       usleep(400 * 1000); //400 millisec
     }
 }
 void client_request_cleanup_cb(uv_work_t * req, int status)

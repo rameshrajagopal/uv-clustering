@@ -1,6 +1,7 @@
 #ifndef _UTILS_H_INCLUDED_
 #define _UTILS_H_INCLUDED_
 
+#include <uv.h>
 #define  WORKER_ADDRESS  "127.0.0.1"
 #define  WORKER_PORT  7000
 
