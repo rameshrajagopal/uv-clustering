@@ -14,6 +14,7 @@
 
 static uv_loop_t * loop;
 
+
 void on_connect(uv_connect_t *req, int status);
 void on_write_end(uv_write_t *req, int status);
 void alloc_buffer(uv_handle_t *handle, size_t suggested_size, uv_buf_t * buf);
@@ -38,16 +39,25 @@ void alloc_buffer(uv_handle_t * handle, size_t size, uv_buf_t * buf)
     *buf = uv_buf_init((char *) malloc(size), size);
 }
 
+void data_write(write_req_t * wr)
+{
+    int buf_count = 1;
+    if (wr->req_cnt < MAX_REQUESTS) {
+        ++wr->req_cnt;
+        uv_write(&wr->req, wr->handle, &wr->buf, buf_count, on_write_end);
+    }
+}
+
 void on_write_end(uv_write_t * req, int status)
 {
-    DBG_PRINT("%s: status:%d\n", __FUNCTION__, status);
+    write_req_t * wr = (write_req_t *) req;
+    DBG_LOG("%s: handle: %p %p\n", __FUNCTION__, wr, wr->handle);
     if (status == -1) {
         DBG_PRINT_ERR("error on write end");
         return;
     }
-   DBG_PRINT("%s: handle: %p\n", __FUNCTION__, req);
-   uv_read_start(req->handle, alloc_buffer, data_read_cb);
-   free(req);
+   uv_read_start(wr->req.handle, alloc_buffer, data_read_cb);
+   data_write(wr);
 }
 
 void client_request_cb(uv_work_t * req)
@@ -78,16 +88,31 @@ void client_request_cleanup_cb(uv_work_t * req, int status)
 
 void on_connect(uv_connect_t * req, int status)
 {
+    static int client_req_num = 0;
     if (status == -1) {
         fprintf(stderr, "error on connect");
         return;
     }
+    DBG_LOG("connected: %d\n", client_req_num++);
+#if 0
     struct request * c_req = malloc(sizeof(struct request));
     assert(c_req != NULL);
     c_req->req.data = (void *) c_req;
     c_req->handle = (uv_handle_t *)req->handle;
     c_req->nrequests = MAX_REQUESTS;
     uv_queue_work(uv_default_loop(), &c_req->req, client_request_cb, client_request_cleanup_cb);
+#endif
+    write_req_t * wr = malloc(sizeof(write_req_t));
+    assert(wr != NULL);
+    wr->req_cnt = 0;
+    wr->handle = (uv_stream_t *) req->handle;
+
+    int buf_count = 1;
+    wr->buf = uv_buf_init(malloc(sizeof(char) * 1024), 1024);
+    snprintf(wr->buf.base, wr->buf.len, "%d:%d", ++client_req_num, wr->req_cnt);
+
+    DBG_LOG("%s wr: %p handle: %p\n", __FUNCTION__, wr, req->handle);
+    uv_write(&wr->req, (uv_stream_t *)req->handle, &wr->buf, buf_count, on_write_end);
 }
 
 void client_task(void * arg)

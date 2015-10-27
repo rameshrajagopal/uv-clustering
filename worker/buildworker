@@ -1,1 +1,1 @@
-gcc -g -Wall -I../common/ -std=c11 -o worker -D_GNU_SOURCE  -I/home/indix/explore/libuv/include worker.c -luv
+gcc -g -Wall -I../common/ -std=c11 -o worker -D_GNU_SOURCE -I/home/indix/explore/libuv/include worker.c ../common/utils.c -luv
